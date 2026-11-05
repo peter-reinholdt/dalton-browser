@@ -1,0 +1,13 @@
+John Dalton portrait
+
+Source: Dalton / daltonprogram.org website repository, static/images/bg_header.jpg
+https://gitlab.com/dalton/daltonprogram.org/-/blob/6a5b85690ef7db58c7dc7a872dc3c0ebfcd23b51/static/images/bg_header.jpg
+
+Credit: Dalton website contributors. The website repository is distributed
+under Creative Commons Attribution-ShareAlike 4.0 International:
+https://gitlab.com/dalton/daltonprogram.org/-/blob/6a5b85690ef7db58c7dc7a872dc3c0ebfcd23b51/LICENSE
+https://creativecommons.org/licenses/by-sa/4.0/
+
+The original image bytes are preserved as john-dalton.jpg. The browser header
+displays a circular crop using CSS. License text is included at
+../assets/licenses/DALTON-WEBSITE.txt in the staged static site.

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dalton / Molecular workspace</title>
+  <link rel="stylesheet" href="./vendor/xterm.css"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header><a class="brand" href="./"><span class="mark portrait"><img src="./branding/john-dalton.jpg" alt="John Dalton" width="42" height="42" title="John Dalton portrait from daltonprogram.org · CC BY-SA 4.0"></span> DALTON <span class="divider">/</span> <span class="subtitle">Molecular workspace</span></a><span class="local"><i></i> Runs on your computer</span></header>
+  <main>
+    <aside>
+      <div class="eyebrow">WORKSPACE</div><div class="workspace-title">Browser session <span>WASM · SERIAL</span></div>
+      <div class="section-label">Files <button id="upload" class="text-button">+ Upload</button></div>
+      <input id="upload-input" type="file" multiple hidden>
+      <nav id="files" aria-label="Workspace files"></nav>
+      <button id="new-file" class="outline">+ New file</button>
+      <div class="section-label examples-label">Start from an example</div>
+      <button class="example" data-example="hf"><b>01</b><span>Water · Hartree–Fock<small>STO-3G / energy & dipole</small></span><span>↗</span></button>
+      <button class="example" data-example="dft"><b>02</b><span>Water · B3LYP<small>STO-3G / density functional</small></span><span>↗</span></button>
+      <div class="aside-bottom"><button id="export-project" class="outline">Download project</button><button id="reset" class="text-button">Reset saved session</button><p>Inputs and selected results are saved in this browser. Download a copy to keep them elsewhere.</p></div>
+    </aside>
+    <section class="work-area">
+      <div class="toolbar"><div><div class="eyebrow">INPUT EDITOR</div><strong id="current-file">hf.dal</strong><span id="save-state" aria-live="polite">Saved locally</span></div><div class="toolbar-actions"><button id="download" class="outline">Download file</button><button id="run" class="primary">▶ Run calculation</button><button id="cancel" class="danger" disabled>■ Cancel</button></div></div>
+      <div class="run-settings"><label>Input <select id="dal-select"></select></label><label>Molecule <select id="mol-select"></select></label><label>Workspace <select id="memory"><option value="8000000">64 MB</option><option value="16000000" selected>128 MB</option><option value="32000000">256 MB</option><option value="64000000">512 MB</option></select></label><span>+ runtime and scratch memory</span></div>
+      <div class="editor-wrap"><div id="line-numbers" aria-hidden="true"></div><textarea id="editor" spellcheck="false" aria-label="File contents" wrap="off"></textarea><div id="binary-message" hidden>Binary result file. Use Download file to save it.</div></div>
+      <div class="terminal-bar"><span><i></i> TERMINAL</span><div><span id="status" role="status">Ready</span><button id="clear-terminal" class="text-button">Clear</button></div></div>
+      <div id="terminal" aria-label="Dalton terminal"></div>
+      <div class="command-row"><span>dalton ›</span><input id="command" aria-label="Terminal command" placeholder="Type help for commands" autocomplete="off" spellcheck="false"><button id="send-command" class="text-button">Enter ↵</button></div>
+      <footer><span><span id="build-info">Loading build information…</span> · <button id="basis-list" class="text-button" aria-label="List bundled basis sets" disabled>Basis sets</button></span><span id="result-summary">Double precision · one calculation at a time</span></footer>
+    </section>
+  </main>
+  <dialog id="file-dialog"><form method="dialog"><h2>Create a file</h2><label>File name <input id="file-name" required placeholder="calculation.dal"></label><div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button id="create-file" value="create" class="primary">Create</button></div></form></dialog>
+  <script src="./vendor/xterm.js"></script><script type="module" src="./app.mjs"></script>
+</body>
+</html>

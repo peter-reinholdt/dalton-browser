@@ -1,0 +1,150 @@
+{
+  "wasmSha256": "cfe4749957333bc2c8e403a27422fe340bb3f8012d94e42262e6d37cbe9c706a",
+  "sourceTreeSha256": "9b6bd9f3d2743d777f4d775b030718efb4b31ca319687ea02384f3df02d9fc74",
+  "maxAtomTypes": 64,
+  "revision": "296b6c52992968adc4bd2e5d175cb225940da0a6",
+  "preset": "wasm-openblas",
+  "serial": true,
+  "basis": [
+    "STO-3G",
+    "3-21G",
+    "6-31G",
+    "6-31G*",
+    "6-31G**",
+    "6-31+G*",
+    "6-31++G**",
+    "6-311G",
+    "6-311G*",
+    "6-311G**",
+    "6-311++G**",
+    "cc-pVDZ",
+    "cc-pVTZ",
+    "cc-pVQZ",
+    "aug-cc-pVDZ",
+    "aug-cc-pVTZ",
+    "def2-SVP",
+    "def2_svp",
+    "def2-TZVP",
+    "def2_tzvp",
+    "def2-TZVPP",
+    "def2_tzvpp",
+    "def2-TZVPD",
+    "def2_tzvpd",
+    "ano-4"
+  ],
+  "basisSets": [
+    {
+      "name": "STO-3G",
+      "source": "STO-3G"
+    },
+    {
+      "name": "3-21G",
+      "source": "3-21G"
+    },
+    {
+      "name": "6-31G",
+      "source": "6-31G"
+    },
+    {
+      "name": "6-31G*",
+      "source": "6-31G*"
+    },
+    {
+      "name": "6-31G**",
+      "source": "6-31G**"
+    },
+    {
+      "name": "6-31+G*",
+      "source": "6-31+G*"
+    },
+    {
+      "name": "6-31++G**",
+      "source": "6-31++G**"
+    },
+    {
+      "name": "6-311G",
+      "source": "6-311G"
+    },
+    {
+      "name": "6-311G*",
+      "source": "6-311G*"
+    },
+    {
+      "name": "6-311G**",
+      "source": "6-311G**"
+    },
+    {
+      "name": "6-311++G**",
+      "source": "6-311++G**"
+    },
+    {
+      "name": "cc-pVDZ",
+      "source": "cc-pVDZ"
+    },
+    {
+      "name": "cc-pVTZ",
+      "source": "cc-pVTZ"
+    },
+    {
+      "name": "cc-pVQZ",
+      "source": "cc-pVQZ"
+    },
+    {
+      "name": "aug-cc-pVDZ",
+      "source": "aug-cc-pVDZ"
+    },
+    {
+      "name": "aug-cc-pVTZ",
+      "source": "aug-cc-pVTZ"
+    },
+    {
+      "name": "def2-SVP",
+      "source": "def2_svp",
+      "aliases": [
+        "def2_svp"
+      ]
+    },
+    {
+      "name": "def2-TZVP",
+      "source": "def2_tzvp",
+      "aliases": [
+        "def2_tzvp"
+      ]
+    },
+    {
+      "name": "def2-TZVPP",
+      "source": "def2_tzvpp",
+      "aliases": [
+        "def2_tzvpp"
+      ]
+    },
+    {
+      "name": "def2-TZVPD",
+      "source": "def2_tzvpd",
+      "aliases": [
+        "def2_tzvpd"
+      ]
+    },
+    {
+      "name": "ano-4",
+      "source": "ano-4",
+      "auxiliary": true
+    }
+  ],
+  "disabledLibraries": [
+    "PElib",
+    "PDE",
+    "PCMSolver",
+    "Gen1Int",
+    "QFITLIB",
+    "LibXC"
+  ],
+  "internalMethods": "retained; validation coverage is listed in validation.json",
+  "maxMemoryBytes": 1073741824,
+  "defaultWorkspaceWords": 16000000,
+  "sourceModified": true,
+  "toolchain": {
+    "image": "r-wasm/flang-wasm",
+    "manifest": "sha256:867e82a9b2d389b64426182cc7d9225e89391b7050b237729b27bfd8f44647a2"
+  }
+}
