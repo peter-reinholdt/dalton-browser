@@ -1,0 +1,5 @@
+Visualization dependencies are pinned in browser/visualization-dependencies.json.
+OpenChemLib JS 9.25.2: BSD-3-Clause; source https://github.com/cheminfo/openchemlib-js/tree/v9.25.2
+JSmol 16.4.23: LGPL-2.1-or-later; unmodified HTML5 runtime from the official release.
+JSmol corresponding source and release files: https://sourceforge.net/projects/jmol/files/Jmol/Version%2016.4/Jmol%2016.4.23/
+License texts are included under assets/licenses/ in packaged builds.

@@ -1,35 +1,594 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dalton / Molecular workspace</title>
-  <link rel="stylesheet" href="./vendor/xterm.css"><link rel="stylesheet" href="./style.css">
-</head>
-<body>
-  <header><a class="brand" href="./"><span class="mark portrait"><img src="./branding/john-dalton.jpg" alt="John Dalton" width="42" height="42" title="John Dalton portrait from daltonprogram.org · CC BY-SA 4.0"></span> DALTON <span class="divider">/</span> <span class="subtitle">Molecular workspace</span></a><span class="local"><i></i> Runs on your computer</span></header>
-  <main>
-    <aside>
-      <div class="eyebrow">WORKSPACE</div><div class="workspace-title">Browser session <span>WASM · SERIAL</span></div>
-      <div class="section-label">Files <button id="upload" class="text-button">+ Upload</button></div>
-      <input id="upload-input" type="file" multiple hidden>
-      <nav id="files" aria-label="Workspace files"></nav>
-      <button id="new-file" class="outline">+ New file</button>
-      <div class="section-label examples-label">Start from an example</div>
-      <button class="example" data-example="hf"><b>01</b><span>Water · Hartree–Fock<small>STO-3G / energy & dipole</small></span><span>↗</span></button>
-      <button class="example" data-example="dft"><b>02</b><span>Water · B3LYP<small>STO-3G / density functional</small></span><span>↗</span></button>
-      <div class="aside-bottom"><button id="export-project" class="outline">Download project</button><button id="reset" class="text-button">Reset saved session</button><p>Inputs and selected results are saved in this browser. Download a copy to keep them elsewhere.</p></div>
-    </aside>
-    <section class="work-area">
-      <div class="toolbar"><div><div class="eyebrow">INPUT EDITOR</div><strong id="current-file">hf.dal</strong><span id="save-state" aria-live="polite">Saved locally</span></div><div class="toolbar-actions"><button id="download" class="outline">Download file</button><button id="run" class="primary">▶ Run calculation</button><button id="cancel" class="danger" disabled>■ Cancel</button></div></div>
-      <div class="run-settings"><label>Input <select id="dal-select"></select></label><label>Molecule <select id="mol-select"></select></label><label>Workspace <select id="memory"><option value="8000000">64 MB</option><option value="16000000" selected>128 MB</option><option value="32000000">256 MB</option><option value="64000000">512 MB</option></select></label><span>+ runtime and scratch memory</span></div>
-      <div class="editor-wrap"><div id="line-numbers" aria-hidden="true"></div><textarea id="editor" spellcheck="false" aria-label="File contents" wrap="off"></textarea><div id="binary-message" hidden>Binary result file. Use Download file to save it.</div></div>
-      <div class="terminal-bar"><span><i></i> TERMINAL</span><div><span id="status" role="status">Ready</span><button id="clear-terminal" class="text-button">Clear</button></div></div>
-      <div id="terminal" aria-label="Dalton terminal"></div>
-      <div class="command-row"><span>dalton ›</span><input id="command" aria-label="Terminal command" placeholder="Type help for commands" autocomplete="off" spellcheck="false"><button id="send-command" class="text-button">Enter ↵</button></div>
-      <footer><span><span id="build-info">Loading build information…</span> · <button id="basis-list" class="text-button" aria-label="List bundled basis sets" disabled>Basis sets</button></span><span id="result-summary">Double precision · one calculation at a time</span></footer>
-    </section>
-  </main>
-  <dialog id="file-dialog"><form method="dialog"><h2>Create a file</h2><label>File name <input id="file-name" required placeholder="calculation.dal"></label><div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button id="create-file" value="create" class="primary">Create</button></div></form></dialog>
-  <script src="./vendor/xterm.js"></script><script type="module" src="./app.mjs"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Build molecules, run Dalton locally, and explore molecular orbitals and spectra in your browser."
+    />
+    <title>Dalton · Molecular workspace</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./vendor/xterm.css" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="./"
+        ><span class="portrait"
+          ><img src="./branding/john-dalton.jpg" alt="John Dalton" width="42" height="42" /></span
+        ><span>DALTON<small>Molecular workspace</small></span></a
+      ><span class="local"><i></i> Calculations stay on your computer</span
+      ><button id="help" class="header-button">Getting started</button>
+    </header>
+    <main>
+      <aside class="sidebar">
+        <div class="eyebrow">YOUR WORKSPACE</div>
+        <label class="sr-only" for="projects">Project</label
+        ><select id="projects"></select>
+        <div class="row">
+          <button id="new-project" class="text-button">+ New project</button
+          ><button id="rename-project" class="text-button">Rename</button>
+        </div>
+        <button id="upload" class="outline">↑ Import structure or project</button
+        ><input
+          id="upload-input"
+          type="file"
+          multiple
+          hidden
+          accept=".xyz,.mol,.sdf,.smi,.smiles,.dal,.json,.inp"
+        />
+        <div class="section-label">Try a small molecule</div>
+        <div class="examples">
+          <button data-example="water">Water <small>Start here</small></button
+          ><button data-example="hydrogen">H₂ <small>Explore a CAS</small></button
+          ><button data-example="formaldehyde">Formaldehyde <small>π orbitals</small></button
+          ><button data-example="benzene">Benzene <small>Aromatic orbitals</small></button>
+        </div>
+        <div class="section-label">Calculation history</div>
+        <nav id="runs" aria-label="Calculation history"></nav>
+        <div class="aside-bottom">
+          <span id="save-state" role="status">Saved locally</span
+          ><button id="export-project" class="outline">↓ Download project</button
+          ><button id="delete-project" class="text-button">Delete project…</button
+          ><small id="storage-info">Download a copy to keep your work.</small>
+        </div>
+      </aside>
+      <section class="work-area">
+        <div class="toolbar">
+          <nav class="steps" aria-label="Calculation workflow">
+            <button data-stage="molecule" aria-current="step"><b>1</b> Molecule</button
+            ><button data-stage="calculation"><b>2</b> Calculation</button
+            ><button data-stage="results"><b>3</b> Results</button>
+          </nav>
+          <div class="toolbar-actions">
+            <button id="cancel" class="danger" disabled>■ Cancel</button
+            ><button id="run" class="primary">▶ Run calculation</button>
+          </div>
+        </div>
+        <div id="notice" role="status" hidden></div>
+        <div class="stage-layout" data-active-stage="molecule">
+          <section class="content-pane">
+            <section id="stage-molecule">
+              <div class="molecule-heading">
+                <div><div class="eyebrow">START WITH A STRUCTURE</div>
+                <h1 id="molecule-title">Water</h1></div>
+                <button id="to-calculation" class="primary">Choose calculation →</button>
+              </div>
+              <p class="intro">Draw a molecule, import coordinates, or explore an example.</p>
+              <div class="row wrap">
+                <button id="open-sketch" class="primary">Draw molecule</button
+                ><button id="undo-molecule" class="outline">Undo geometry</button
+                ><button id="export-xyz" class="outline">Download XYZ</button>
+              </div>
+              <label class="field"
+                >SMILES
+                <div class="input-action">
+                  <input id="smiles" placeholder="e.g. CCO for ethanol" spellcheck="false" /><button
+                    id="from-smiles"
+                    class="outline"
+                  >
+                    Build 3D
+                  </button>
+                </div></label
+              >
+              <label class="check"
+                ><input id="cleanup" type="checkbox" checked /> Relax generated geometry with
+                MMFF94</label
+              >
+              <p class="hint">
+                Generation adds hydrogens. The result is a starting geometry for a quantum
+                calculation.
+              </p>
+              <div id="molecule-facts" class="facts"></div>
+              <div class="section-heading">
+                <h2>Coordinates</h2>
+                <label
+                  >Units
+                  <select id="coordinate-units">
+                    <option value="angstrom">Å</option>
+                    <option value="bohr">bohr</option>
+                  </select></label
+                >
+              </div>
+              <div class="table-scroll">
+                <table class="coordinates">
+                  <thead>
+                    <tr>
+                      <th>Atom</th>
+                      <th>x</th>
+                      <th>y</th>
+                      <th>z</th>
+                    </tr>
+                  </thead>
+                  <tbody id="coordinates"></tbody>
+                </table>
+              </div>
+              <details>
+                <summary>Paste XYZ coordinates</summary>
+                <textarea
+                  id="xyz-input"
+                  rows="7"
+                  spellcheck="false"
+                  aria-label="XYZ coordinates"
+                ></textarea
+                ><button id="apply-xyz" class="outline">Apply coordinates in selected units</button>
+              </details>
+              <div class="section-heading"><h2>Saved structures</h2></div>
+              <div class="input-action">
+                <input
+                  id="structure-name"
+                  aria-label="Structure name"
+                  placeholder="Name this structure"
+                /><button id="save-structure" class="outline">Save structure</button>
+              </div>
+              <div id="saved-structures" class="row wrap"></div>
+              <div class="section-heading"><h2>Measure & edit</h2></div>
+              <div class="row wrap">
+                <select id="measure-a" aria-label="First atom"></select
+                ><select id="measure-b" aria-label="Second atom"></select
+                ><select id="measure-c" aria-label="Third atom (optional)"></select
+                ><select id="measure-d" aria-label="Fourth atom (optional)"></select>
+              </div>
+              <p id="measurement" class="hint"></p>
+              <div class="input-action">
+                <input
+                  id="coordinate-target"
+                  type="number"
+                  step="any"
+                  aria-label="Target coordinate"
+                  placeholder="Target Å or degrees"
+                /><button id="preview-coordinate" class="outline">Preview edit</button
+                ><button id="apply-coordinate" class="outline" disabled>Apply</button
+                ><button id="cancel-coordinate" class="text-button" disabled>Discard</button>
+              </div>
+              <p class="hint">
+                Choose 2 atoms for a distance, 3 for an angle, or 4 for a dihedral. Edits move the
+                connected fragment; Undo restores the previous geometry.
+              </p>
+              <button id="save-measurement" class="outline">Save measurement</button>
+              <div id="saved-measurements" class="row wrap"></div>
+              <div id="geometry-checks"></div>
+            </section>
+            <section id="stage-calculation" hidden>
+              <div class="eyebrow">CHOOSE WHAT TO COMPUTE</div>
+              <h1>Calculation</h1>
+              <p class="intro">
+                Common settings, with the generated Dalton input always available.
+              </p>
+              <div id="guided-panel">
+                <div class="form-grid">
+                  <label class="field">Method<select id="method"></select></label
+                  ><label class="field">Task<select id="task"></select></label
+                  ><label class="field" id="functional-field"
+                    >Functional<select id="functional">
+                      <option value="HF">HF · Hartree–Fock</option>
+                      <option>B3LYP</option>
+                      <option>PBE</option>
+                      <option>PBE0</option>
+                      <option>CAM-B3LYP</option>
+                    </select></label
+                  ><label class="field">Basis set<select id="basis"></select></label
+                  ><label class="field"
+                    >Total charge<input id="charge" type="number" step="1" value="0" /></label
+                  ><label class="field"
+                    >Spin multiplicity<select id="multiplicity">
+                      <option value="1">1 · Singlet</option>
+                      <option value="2">2 · Doublet</option>
+                      <option value="3">3 · Triplet</option>
+                      <option value="4">4 · Quartet</option>
+                      <option value="5">5 · Quintet</option>
+                    </select></label
+                  >
+                </div>
+                <div class="form-grid">
+                  <label class="field" id="dispersion-field"
+                    >Dispersion<select id="dispersion">
+                      <option value="none">None</option>
+                      <option value="d3">D3(0)</option>
+                      <option value="d3bj">D3(BJ)</option>
+                    </select></label
+                  ><label class="field"
+                    >Environment<select id="environment">
+                      <option value="gas">Gas phase</option>
+                      <option value="water">PCM · water (atomic cavity)</option>
+                    </select></label
+                  >
+                </div>
+                <label class="field" id="pcm-precision-field" hidden
+                  >PCM geometry precision<select id="pcmPrecision">
+                    <option value="course">Course · Force norm 1e-3 a.u.</option>
+                    <option value="strict">Strict · Force norm 1e-4 a.u.</option>
+                  </select></label
+                >
+                <div id="excitation-fields" class="form-grid" hidden>
+                  <label class="field"
+                    >Singlet excited states<input
+                      id="excitedStates"
+                      type="number"
+                      min="1"
+                      max="20" /></label
+                  ><label class="field" id="target-state-field"
+                    >Target excited state<input id="targetState" type="number" min="1" max="20"
+                  /></label>
+                </div>
+                <label class="field" id="response-frequency-field" hidden>Photon frequency / Hartree<input id="responseFrequency" type="number" min="0" max="2" step="0.001" value="0" /><small id="response-frequency-hint"></small></label>
+                <p id="property-note" class="hint"></p>
+                <p id="capability-note" class="hint"></p>
+                <div id="cas-panel" class="card" hidden>
+                  <h2>Complete active space</h2>
+                  <p class="hint">
+                    Choose the orbitals involved in the chemistry. A suitable active space requires
+                    chemical judgment.
+                  </p>
+                  <div class="form-grid">
+                    <label class="field"
+                      >Active electrons<input
+                        id="activeElectrons"
+                        type="number"
+                        min="1"
+                        value="2" /></label
+                    ><label class="field"
+                      >Active orbitals<input
+                        id="activeOrbitals"
+                        type="number"
+                        min="1"
+                        value="2" /></label
+                    ><label class="field"
+                      >Inactive orbitals<input
+                        id="inactive"
+                        type="number"
+                        min="0"
+                        value="0" /></label
+                    ><label class="field"
+                      >Roots (comma-separated)<input id="roots" value="1" placeholder="1,2"
+                    /></label>
+                  </div>
+                  <label id="average-field" class="check"
+                    ><input id="stateAverage" type="checkbox" /> State-averaged CASSCF · unavailable
+                    in this engine</label
+                  ><label id="weights-field" class="field"
+                    >Relative weights<input
+                      id="weights"
+                      value="1"
+                      placeholder="1,1 for equal weights"
+                  /></label>
+                  <p id="cas-estimate" class="hint"></p>
+                  <button id="prepare-orbitals" class="outline">Prepare reference orbitals</button>
+                  <p id="prepared-status" class="hint"></p>
+                  <div id="active-orbitals"></div>
+                </div>
+                <details>
+                  <summary>Convergence and resources</summary>
+                  <div class="form-grid">
+                    <label class="field"
+                      >Convergence<select id="convergence">
+                        <option value="normal">Normal</option>
+                        <option value="tight">Tight</option>
+                      </select></label
+                    ><label class="field" id="steps-field"
+                      >Maximum geometry steps<input
+                        id="maxSteps"
+                        type="number"
+                        min="1"
+                        max="200"
+                        value="50" /></label
+                    ><label class="field" id="frozen-field"
+                      >Frozen occupied orbitals<input
+                        id="frozenCore"
+                        type="number"
+                        min="0"
+                        value="0"
+                    /></label>
+                  </div>
+                </details>
+                <div id="calculation-checks"></div>
+
+              </div>
+              <label class="field resource"
+                >Dalton work memory per process<select id="memory">
+                  <option value="8000000">64 MB</option>
+                  <option value="16000000" selected>128 MB</option>
+                  <option value="32000000">256 MB</option>
+                  <option value="64000000">512 MB</option></select
+                ><small
+                  >Runtime, scratch files, and visualizations use additional memory.</small
+                ></label
+              >
+              <label class="field resource">MPI processes<select id="processes"><option value="1">1 — Serial</option></select>
+                <small id="mpi-info">Loading parallel engine availability…</small>
+              </label>
+              <p class="hint" id="mpi-memory"></p>
+              <button id="mpi-serial" class="outline" hidden>Use one process</button>
+            </section>
+            <section id="stage-studies" class="scan-workspace" hidden>
+              <h2>Dihedral scan</h2>
+              <p class="hint">Select four atoms in Molecule → Measure & edit, then scan their torsion. Energies and barriers are assembled automatically.</p>
+              <div class="card" hidden>
+                <h2>Course exercises</h2>
+                <label class="field"
+                  >CØ2–CØ6 starting points<select id="course-preset"></select></label
+                ><button id="create-course" class="primary">Create course study</button>
+                <p class="hint">
+                  Starting geometries are approximate. Each study keeps its own settings,
+                  structures, and source calculations.
+                </p>
+              </div>
+              <details open>
+                <summary>Configure scan</summary>
+                <div class="form-grid">
+                  <label class="field">Scan mode<select id="scan-mode"><option value="rigid">Rigid</option><option value="relaxed">Relaxed</option><option value="both">Rigid and relaxed</option></select></label>
+                  <label class="check"><input id="scan-optimize-start" type="checkbox" /> Optimize the starting geometry first</label>
+                </div>
+                <label class="field">Study type<select id="study-kind"></select></label
+                ><label class="field">Name<input id="study-name" placeholder="Dihedral scan" /></label
+                ><label class="field"
+                  >Starting geometry<select id="study-source">
+                    <option value="">Current molecule</option>
+                  </select></label
+                ><label class="field"
+                  >Second structure (conformer / solvent comparison)<select
+                    id="study-other"
+                  ></select></label
+                ><label class="field"
+                  >Basis sets (comma-separated)<input id="study-bases" value="6-31G*,6-311G*"
+                /></label>
+                <p class="hint">Scans use the atoms selected in Molecule → Measure & edit.</p>
+                <div class="form-grid">
+                  <label class="field"
+                    >From / °<input
+                      id="scan-start"
+                      type="number"
+                      value="0"
+                      step="any" /></label
+                  ><label class="field"
+                    >To<input id="scan-end" type="number" value="180" step="any" /></label
+                  ><label class="field"
+                    >Step<input id="scan-step" type="number" value="30" step="any" /></label
+                  ><label class="field"
+                    >Conformer B torsion / °<input
+                      id="conformer-angle"
+                      type="number"
+                      value="180" /></label
+                  ><label class="field"
+                    >Ion multiplicity<input
+                      id="ion-multiplicity"
+                      type="number"
+                      min="1"
+                      max="5"
+                      value="2"
+                  /></label>
+                </div>
+                <label class="check"
+                  ><input id="scan-relaxed" type="checkbox" checked /> Include relaxed scan</label
+                ><button id="create-study" class="outline">Run dihedral scan</button>
+              </details>
+              <label class="field">Saved scans<select id="study-select"></select></label>
+              <div id="study-content"></div>
+            </section>
+            <section id="stage-results" hidden>
+              <div class="eyebrow">EXPLORE YOUR RESULTS</div>
+              <h1 id="results-title">Results</h1>
+              <div id="results-content">
+                <p class="intro">Your completed calculations will appear here.</p>
+              </div>
+            </section>
+          </section>
+          <section class="visual-pane" aria-label="Molecular visualization">
+            <div class="viewer-toolbar">
+              <strong id="viewer-title">Molecular structure</strong
+              ><select id="representation" aria-label="Representation">
+                <option value="ball">Ball and stick</option>
+                <option value="space">Space filling</option></select
+              ><label class="check"><input id="atom-labels" type="checkbox" /> Labels</label>
+            </div>
+            <div id="viewer"><div class="viewer-placeholder">Loading molecular viewer…</div></div>
+            <div id="viewer-caption" class="hint">
+              Drag to rotate · scroll to zoom · click atoms to measure
+            </div>
+            <div class="row viewer-actions">
+              <button id="reset-view" class="outline">Reset view</button
+              ><button id="viewer-png" class="outline">Save image</button>
+            </div>
+            <label class="check"
+              ><input id="show-dipole" type="checkbox" disabled /> Dipole vector</label
+            >
+            <section id="calculation-preview" class="input-preview" aria-label="Generated Dalton input" hidden>
+              <h2>Dalton input preview</h2>
+              <div class="code-label">calculation.dal · updates with your settings</div>
+              <textarea id="dal-preview" rows="16" spellcheck="false" aria-label="Dalton calculation input"></textarea>
+              <p id="input-edit-state" class="hint">Changing a setting regenerates this input.</p>
+              <details id="preview-details">
+                <summary>Molecule input · molecule.mol</summary>
+                <textarea id="mol-preview" rows="12" spellcheck="false" aria-label="Dalton molecule input"></textarea>
+              </details>
+              <div class="row wrap">
+                <button id="download-inputs" class="outline">Download inputs</button>
+                <button id="reset-input" class="outline">Regenerate from settings</button>
+              </div>
+            </section>
+            <div id="orbital-controls" hidden>
+              <h2>Molecular orbitals</h2>
+              <p id="orbital-provenance" class="hint"></p>
+              <div class="row wrap">
+                <button id="show-homo" class="outline">HOMO</button
+                ><button id="show-lumo" class="outline">LUMO</button
+                ><button id="hide-orbital" class="outline">Hide orbital</button
+                ><button id="download-cube" class="outline" hidden disabled>Download cube</button>
+              </div>
+              <label id="cube-quality-field" class="field" hidden
+                >Surface detail
+                <select id="cube-quality">
+                  <option value="fine">Fine</option>
+                  <option value="standard">Standard (faster)</option>
+                </select>
+              </label>
+              <div class="form-grid">
+                <label class="field"
+                  >Isovalue (a.u.)<input
+                    id="isovalue"
+                    type="number"
+                    min="0.005"
+                    max="0.2"
+                    step="0.005"
+                    value="0.04" /></label
+                ><label class="field"
+                  >Opacity<input
+                    id="opacity"
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    value="0.8" /></label
+                ><label class="field"
+                  >Orbital filter<input id="orbital-filter" placeholder="Index, symmetry…" /></label
+                ><label class="field"
+                  >Sort<select id="orbital-sort">
+                    <option value="index">Original index</option>
+                    <option value="energy">Energy</option>
+                    <option value="occupation">Occupation</option>
+                  </select></label
+                >
+              </div>
+              <div class="input-action">
+                <input
+                  id="orbital-relative"
+                  aria-label="Orbital index or HOMO/LUMO offset"
+                  placeholder="HOMO−2 (use minus), LUMO+1, or index"
+                /><button id="orbital-jump" class="outline">Show MO</button>
+              </div>
+              <label class="field"
+                >Orbital range<input
+                  id="orbital-range"
+                  placeholder="e.g. HOMO-6:LUMO+2 (blank for all)"
+              /></label>
+              <p id="orbital-gap" class="hint"></p>
+              <div class="orbital-browser">
+              <div id="orbital-diagram"></div>
+              <div class="orbital-table table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>MO</th>
+                      <th>Sym.</th>
+                      <th>Space</th>
+                      <th>Occupation</th>
+                      <th>Energy / Eh</th>
+                    </tr>
+                  </thead>
+                  <tbody id="orbitals"></tbody>
+                </table>
+              </div>
+              </div>
+              <button id="export-orbitals" class="text-button">Download orbital table (CSV)</button>
+            </div>
+          </section>
+        </div>
+        <details id="terminal-drawer">
+          <summary>
+            <span id="output-title">Dalton output & terminal</span><span id="status" role="status">Ready</span>
+          </summary>
+          <div class="terminal-tools">
+            <select id="file-select" aria-label="Workspace or result file"></select
+            ><button id="download-file" class="text-button">Download file</button
+            ><button id="clear-terminal" class="text-button">Clear terminal</button>
+          </div>
+          <pre id="file-preview" hidden></pre>
+          <div id="terminal" aria-label="Dalton terminal"></div>
+          <div class="command-row">
+            <span>dalton ›</span
+            ><input
+              id="command"
+              aria-label="Terminal command"
+              placeholder="help"
+              autocomplete="off"
+            /><button id="send-command" class="text-button">Enter ↵</button>
+          </div>
+        </details>
+        <footer>
+          <span id="build-info">Loading build information…</span
+          ><button id="basis-list" class="text-button">Basis sets</button
+          ><span id="result-summary">Serial · double precision</span>
+        </footer>
+      </section>
+    </main>
+    <dialog id="sketch-dialog">
+      <div class="section-heading">
+        <h2>Draw a molecule</h2>
+        <button id="close-sketch" class="text-button">Close ✕</button>
+      </div>
+      <div id="sketch-editor"></div>
+      <p class="hint">
+        Specify charges and stereochemistry as needed. Generate 3D to add the structure to your
+        project.
+      </p>
+      <button id="generate-sketch" class="primary">Generate 3D structure</button>
+    </dialog>
+    <dialog id="name-dialog">
+      <form method="dialog">
+        <h2 id="name-title">New project</h2>
+        <label class="field">Name<input id="project-name" maxlength="100" required /></label>
+        <div class="dialog-actions">
+          <button value="cancel" formnovalidate class="outline">Cancel</button
+          ><button value="save" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="help-dialog">
+      <h2>A small calculation, step by step</h2>
+      <ol>
+        <li>Choose an example, import coordinates, or draw a molecule.</li>
+        <li>Choose a method, basis set, and calculation task. HF/STO-3G is a quick first run.</li>
+        <li>Run locally, then inspect energies, orbitals, optimized structures, or vibrations.</li>
+      </ol>
+      <p>
+        Calculations stop if you close this tab. Save a project download to keep a portable copy.
+        Geometry generation provides a starting structure; use an optimization to find a stationary
+        geometry.
+      </p>
+      <p>Expert mode exposes the full compiled engine. Guided controls cover a tested subset.</p>
+      <button id="close-help" class="primary">Got it</button>
+    </dialog>
+    <dialog id="delete-dialog">
+      <h2>Delete this project?</h2>
+      <p>
+        Its local inputs and calculation history will be removed. Download a project copy first if
+        you need it.
+      </p>
+      <div class="dialog-actions">
+        <button id="keep-project" class="outline">Keep project</button
+        ><button id="confirm-delete" class="danger">Delete project</button>
+      </div>
+    </dialog>
+    <dialog id="sdf-dialog">
+      <h2>Choose a structure</h2>
+      <select id="sdf-record" aria-label="Structure in SDF"></select>
+      <div class="dialog-actions">
+        <button id="cancel-sdf" class="outline">Cancel</button
+        ><button id="choose-sdf" class="primary">Import structure</button>
+      </div>
+    </dialog>
+    <script src="./vendor/xterm.js"></script>
+    <script type="module" src="./app.mjs"></script>
+  </body>
 </html>
