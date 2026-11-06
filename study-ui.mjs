@@ -1,5 +1,5 @@
 import { uid, toXYZ } from './molecules.mjs';
-import { defaults } from './calculations.mjs';
+import { defaults, METHODS } from './calculations.mjs';
 import {
   STUDY_TYPES,
   COURSE_PRESETS,
@@ -32,7 +32,9 @@ export function studyWorkspace(ctx) {
   } = ctx;
   let running = false,
     stopping = false,
-    preview = null;
+    preview = null,
+    coordinateCount = null,
+    gridCount = null;
   const selected = () => p().studies.find((s) => s.id === p().activeStudy && s.kind === 'scan');
   const ids = () =>
     ['a', 'b', 'c', 'd']
@@ -40,13 +42,13 @@ export function studyWorkspace(ctx) {
       .filter((v) => v !== '')
       .map((i) => p().molecule.atoms[Number(i)].id);
   const options = () => ({
-    name: $('study-name').value.trim() || ($('scan-mode').value === 'both' ? 'Rigid and relaxed' : $('scan-mode').value === 'rigid' ? 'Rigid' : 'Relaxed') + ' dihedral scan',
+    name: $('study-name').value.trim() || ($('scan-mode').value === 'both' ? 'Rigid and relaxed' : $('scan-mode').value === 'rigid' ? 'Rigid' : 'Relaxed') + ' ' + ({2:'distance',3:'angle',4:'dihedral'}[coordinateCount]) + ' scan',
     measurements: p()
       .measurements.filter((m) => m.moleculeId === p().molecule.id)
       .map((m) => ({ name: m.name, ids: m.ids })),
     sourceRunId: $('study-source').value || undefined,
     otherMolecule: p().structures.find((s) => s.id === $('study-other').value)?.molecule,
-    coordinate: ids(),
+    coordinate: ids().slice(0, coordinateCount),
     bases: $('study-bases')
       .value.split(',')
       .map((s) => s.trim())
@@ -60,6 +62,50 @@ export function studyWorkspace(ctx) {
     conformerAngle: Number($('conformer-angle').value),
     ionMultiplicity: Number($('ion-multiplicity').value),
   });
+  function syncSelection(requestedCount = null, infer = true) {
+    const selectedIds = ids();
+    const count = requestedCount ?? (infer && selectedIds.length >= 2 ? selectedIds.length : coordinateCount ?? 2);
+    coordinateCount = count;
+    $('scan-coordinate-type').value = String(count);
+    for (const [i,key] of ['a','b','c','d'].entries()) {
+      const select = $('scan-atom-'+key);
+      const value = $('measure-'+key).value;
+      select.replaceChildren(new Option('Choose atom',''), ...p().molecule.atoms.map((a,index)=>new Option(`${a.symbol}${index+1}`,String(index))));
+      select.value = value;
+      select.closest('label').hidden = i >= count;
+    }
+    const unit = count === 2 ? 'Å' : '°';
+    $('scan-from-label').textContent = `From / ${unit}`;
+    try {
+      const selected = selectedIds.slice(0,count);
+      if (selected.length !== count) throw new Error(`Select ${count} distinct atoms in order.`);
+      const value = coordinate(p().molecule,selected);
+      $('scan-coordinate-value').textContent = `Current ${count === 2 ? 'distance' : count === 3 ? 'angle' : 'dihedral'}: ${value.toFixed(4)} ${unit}.`;
+      if (count !== gridCount) {
+        gridCount = count;
+        const center = count === 2 ? Math.max(0.21,Number(value.toFixed(2))) : Math.max(11,Math.min(169,Math.round(value)));
+        $('scan-start').value = count === 4 ? '0' : (center-(count === 2 ? .1 : 10)).toFixed(count === 2 ? 2 : 0);
+        $('scan-end').value = count === 4 ? '360' : (center+(count === 2 ? .1 : 10)).toFixed(count === 2 ? 2 : 0);
+        $('scan-step').value = count === 2 ? '.05' : count === 3 ? '5' : '30';
+      }
+    } catch(error) { $('scan-coordinate-value').textContent = error.message; }
+    const optimize = METHODS[p().calculation.method].tasks.includes('optimize');
+    for (const option of $('scan-mode').options) option.disabled = option.value !== 'rigid' && !optimize;
+    if (!optimize) { $('scan-mode').value='rigid';$('scan-optimize-start').checked=false; }
+    $('scan-optimize-start').disabled = running || !optimize;
+    $('scan-method-note').textContent = optimize ? 'Rigid: change only the selected coordinate. Relaxed: optimize the other coordinates while holding the selected one fixed.' : 'This method offers rigid scans. Choose SCF for guided constrained relaxation.';
+  }
+  $('scan-coordinate-type').onchange = () => {
+    const count=Number($('scan-coordinate-type').value);
+    for(const key of ['a','b','c','d'].slice(count)) $('measure-'+key).value='';
+    ctx.updateMeasurement({scanType:count});
+    ctx.renderCalculation();
+  };
+  for(const key of ['a','b','c','d']) $('scan-atom-'+key).onchange = () => {
+    $('measure-'+key).value=$('scan-atom-'+key).value;
+    ctx.updateMeasurement({scanType:coordinateCount});
+  };
+  $('scan-mode').onchange = () => ctx.renderCalculation();
   function add(study) {
     p().studies.push(study);
     p().activeStudy = study.id;
@@ -73,7 +119,7 @@ export function studyWorkspace(ctx) {
     ...Object.entries(COURSE_PRESETS).map(([id, s]) => new Option(s.label, id)),
   );
   $('study-kind').replaceChildren(
-    new Option('Dihedral scan', 'scan'),
+    new Option('Coordinate scan', 'scan'),
   );
   function studyFields() {
     const kind = $('study-kind').value;
@@ -110,11 +156,11 @@ export function studyWorkspace(ctx) {
       }),
     );
   });
-  $('create-study').onclick = ctx.guard(async () => {
+  async function start() {
     if (running) throw new Error('Finish or pause the current study first.');
     if (p().calculation.mode === 'expert') throw new Error('Change a calculation setting to regenerate input before starting a scan.');
     const opts = options();
-    if (opts.coordinate.length !== 4) throw new Error('Select four atoms in Molecule → Measure & edit for this dihedral scan.');
+    if (opts.coordinate.length !== coordinateCount) throw new Error(`Select ${coordinateCount} distinct atoms for this coordinate scan.`);
     let mol = p().molecule;
     if (opts.sourceRunId) {
       const source = p().runs.find((r) => r.id === opts.sourceRunId),
@@ -127,7 +173,8 @@ export function studyWorkspace(ctx) {
     const study = createStudy('scan', mol, p().calculation, opts);
     add(study);
     await run(study);
-  });
+  }
+  $('create-study').onclick = ctx.guard(start);
   $('study-select').onchange = () => {
     p().activeStudy = $('study-select').value;
     save();
@@ -237,7 +284,7 @@ export function studyWorkspace(ctx) {
     const study = selected(),
       el = $('study-content');
     if (!study) {
-      el.innerHTML = '<p class="hint">Configure a dihedral scan above to compare its energies and barrier.</p>';
+      el.innerHTML = '<p class="hint">Configure a coordinate scan above to compare its energies and sampled barrier.</p>';
       return;
     }
     const analysis = analyzeStudy(study, p().runs);
@@ -297,7 +344,7 @@ export function studyWorkspace(ctx) {
         })),
       }));
       $('study-scan').innerHTML =
-        `<h2>Coordinate scan</h2>${xyPlot(curves, 'Relative electronic energy', { xLabel: study.options.coordinate.length === 2 ? 'Distance / Å' : 'Angle / °', yLabel: 'kJ/mol' })}<p class="hint">Common zero: first successful rigid point. Failed or missing points leave gaps. Barriers require a complete scan and refer to the sampled grid.</p><table><thead><tr><th>Coordinate</th><th>Mode</th><th>ΔE / kJ mol⁻¹</th><th>Achieved</th></tr></thead><tbody>${analysis.scan.flatMap((s) => s.points.map((p) => `<tr><td>${p.angle}</td><td>${s.mode}</td><td>${p.energy == null ? '—' : ((p.energy - zero) * UNITS.hartreeToKJMol).toFixed(3)}</td><td>${p.actual?.toFixed(3) ?? '—'}</td></tr>`)).join('')}</tbody></table>`;
+        `<h2>Coordinate scan</h2>${xyPlot(curves, 'Relative electronic energy', { xLabel: study.options.coordinate.length === 2 ? 'Distance / Å' : study.options.coordinate.length === 3 ? 'Angle / °' : 'Dihedral / °', yLabel: 'kJ/mol' })}<p class="hint">Common zero: first successful ${analysis.scan[0].mode} point. Failed or missing points leave gaps. Barriers require a complete scan and refer to the sampled grid.</p><table><thead><tr><th>Coordinate / ${study.options.coordinate.length === 2 ? 'Å' : '°'}</th><th>Mode</th><th>ΔE / kJ mol⁻¹</th><th>Achieved</th></tr></thead><tbody>${analysis.scan.flatMap((s) => s.points.map((p) => `<tr><td>${p.angle}</td><td>${s.mode}</td><td>${p.energy == null ? '—' : ((p.energy - zero) * UNITS.hartreeToKJMol).toFixed(3)}</td><td>${p.actual?.toFixed(3) ?? '—'}</td></tr>`)).join('')}</tbody></table>`;
     }
     $('study-processes').onchange = event => { study.processes = Number(event.target.value); save(); };
     $('study-run').onclick = ctx.guard(() => run(study));
@@ -451,6 +498,8 @@ export function studyWorkspace(ctx) {
     }
   }
   return {
+    start,
+    syncSelection,
     render,
     isRunning: () => running,
     stop: () => {

@@ -1,11 +1,14 @@
 {
-  "wasmSha256": "5c73cc46cddc81ec424c0875d8d5be91293948c6efa33e5399b8ad4cb7b93d65",
+  "wasmSha256": "5a4a33963f498bdcd4d5c41d7ebe5c3721e72717a1bb3936bdb2fae24e8ecdc2",
   "glueSha256": "d83bae0dbc737803570bb7fb96bc30357b7786a86e020e50be6d3d6c03d1671d",
-  "sourceTreeSha256": "4ab09b30f7cd7fa094d02a6e16db57ef15cc579c84b8a1f2c054ebab8669ef0a",
+  "sourceTreeSha256": "f09a0b8a2d705f160732ed4f5d6da287264e7b91d6354f38a4f9420c965d0607",
   "maxAtomTypes": 64,
   "revision": "296b6c52992968adc4bd2e5d175cb225940da0a6",
   "preset": "wasm-mpi-openblas",
   "serial": false,
+  "scientificFixes": [
+    "sirius-dipole-vector-buffer"
+  ],
   "basis": [
     "STO-3G",
     "3-21G",

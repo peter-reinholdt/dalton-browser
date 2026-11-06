@@ -1,4 +1,5 @@
 import { JSMOL_BASE } from './viewer-config.mjs';
+import { dipoleDisplay } from './dipole.mjs';
 const NativeError = window.Error;
 const send = (data) => parent.postMessage({ channel: 'dalton-viewer', ...data }, location.origin);
 let applet;
@@ -32,7 +33,9 @@ try {
     },
     pickCallback: 'daltonPick',
     script:
-      'set frank off;set antialiasDisplay true;set allowEmbeddedScripts false;set disablePopupMenu true;set picking identify;background [245,248,241];',
+      // Rapid clicks on different atoms must keep picking, rather than start
+      // JSmol's built-in double-click measurement mode.
+      'set frank off;set antialiasDisplay true;set allowEmbeddedScripts false;set disablePopupMenu true;set picking identify;unbind "LEFT-DOUBLE";bind "LEFT-DOUBLE" "_pickAtom";background [245,248,241];',
   });
   applet = window.daltonViewer;
   new ResizeObserver(() => {
@@ -76,18 +79,10 @@ window.addEventListener('message', (event) => {
       case 'dipole': {
         script('draw ID "daltonDipole" delete;');
         if (data.vector) {
-          if (
-            data.vector.length !== 3 ||
-            data.origin?.length !== 3 ||
-            ![...data.vector, ...data.origin].every(Number.isFinite)
-          )
-            throw new NativeError('Invalid dipole vector.');
-          const size = Math.hypot(...data.vector);
-          if (size > 1e-8) {
-            const factor = Math.min(3, Math.max(0.6, size * 0.8)) / size,
-              tip = data.origin.map((v, i) => v + factor * data.vector[i]);
+          const display = dipoleDisplay(data.vector, data.origin);
+          if (display.visible) {
             script(
-              `draw ID "daltonDipole" arrow {${data.origin.join(' ')}} {${tip.join(' ')}} color [150,60,95] width 0.12;`,
+              `draw ID "daltonDipole" arrow {${data.origin.join(' ')}} {${display.tip.join(' ')}} color [150,60,95] width 0.12;`,
             );
           }
         }

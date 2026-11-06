@@ -322,8 +322,8 @@
               <button id="mpi-serial" class="outline" hidden>Use one process</button>
             </section>
             <section id="stage-studies" class="scan-workspace" hidden>
-              <h2>Dihedral scan</h2>
-              <p class="hint">Select four atoms in Molecule → Measure & edit, then scan their torsion. Energies and barriers are assembled automatically.</p>
+              <h2>Coordinate scan</h2>
+              <p class="hint">Pick two, three, or four atoms in the molecule viewer, or select them below. Energies and sampled barriers are assembled automatically.</p>
               <div class="card" hidden>
                 <h2>Course exercises</h2>
                 <label class="field"
@@ -336,12 +336,21 @@
               </div>
               <details open>
                 <summary>Configure scan</summary>
+                <label class="field">Coordinate<select id="scan-coordinate-type"><option value="2">Distance · two atoms</option><option value="3">Angle · three atoms</option><option value="4">Dihedral · four atoms</option></select></label>
+                <div class="form-grid">
+                  <label class="field">Atom 1<select id="scan-atom-a"></select></label>
+                  <label class="field">Atom 2<select id="scan-atom-b"></select></label>
+                  <label class="field">Atom 3<select id="scan-atom-c"></select></label>
+                  <label class="field">Atom 4<select id="scan-atom-d"></select></label>
+                </div>
+                <p id="scan-coordinate-value" class="hint"></p>
                 <div class="form-grid">
                   <label class="field">Scan mode<select id="scan-mode"><option value="rigid">Rigid</option><option value="relaxed">Relaxed</option><option value="both">Rigid and relaxed</option></select></label>
                   <label class="check"><input id="scan-optimize-start" type="checkbox" /> Optimize the starting geometry first</label>
                 </div>
-                <label class="field">Study type<select id="study-kind"></select></label
-                ><label class="field">Name<input id="study-name" placeholder="Dihedral scan" /></label
+                <p id="scan-method-note" class="hint"></p>
+                <label class="field" hidden>Study type<select id="study-kind"></select></label
+                ><label class="field">Name<input id="study-name" placeholder="Coordinate scan" /></label
                 ><label class="field"
                   >Starting geometry<select id="study-source">
                     <option value="">Current molecule</option>
@@ -353,10 +362,9 @@
                 ><label class="field"
                   >Basis sets (comma-separated)<input id="study-bases" value="6-31G*,6-311G*"
                 /></label>
-                <p class="hint">Scans use the atoms selected in Molecule → Measure & edit.</p>
                 <div class="form-grid">
                   <label class="field"
-                    >From / °<input
+                    ><span id="scan-from-label">From / Å</span><input
                       id="scan-start"
                       type="number"
                       value="0"
@@ -381,7 +389,7 @@
                 </div>
                 <label class="check"
                   ><input id="scan-relaxed" type="checkbox" checked /> Include relaxed scan</label
-                ><button id="create-study" class="outline">Run dihedral scan</button>
+                ><button id="create-study" class="outline">Run coordinate scan</button>
               </details>
               <label class="field">Saved scans<select id="study-select"></select></label>
               <div id="study-content"></div>
@@ -411,8 +419,9 @@
               ><button id="viewer-png" class="outline">Save image</button>
             </div>
             <label class="check"
-              ><input id="show-dipole" type="checkbox" disabled /> Dipole vector</label
+              ><input id="show-dipole" type="checkbox" aria-describedby="dipole-display-note" disabled /> <span id="dipole-label">Dipole vector</span></label
             >
+            <p id="dipole-display-note" class="hint" hidden></p>
             <section id="calculation-preview" class="input-preview" aria-label="Generated Dalton input" hidden>
               <h2>Dalton input preview</h2>
               <div class="code-label">calculation.dal · updates with your settings</div>

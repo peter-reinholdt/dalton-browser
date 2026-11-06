@@ -1,4 +1,5 @@
 import { propertyResultHTML } from './properties.mjs';
+import { dipoleDisplay, dipoleNeedsRerun, DIPOLE_ARROW_MIN_DEBYE } from './dipole.mjs';
 import { ensureIsolation } from './isolation.mjs';
 import { executionWorker, mpiAvailability, validateExecution, memoryEstimate } from './mpi/execution.mjs';
 document.body.inert = true;
@@ -323,12 +324,13 @@ function renderMolecule() {
   updateMeasurement();
   messages('geometry-checks', check.errors, check.warnings);
 }
-function updateMeasurement() {
+function updateMeasurement({ scanType } = {}) {
   const ids = ['a', 'b', 'c', 'd']
     .map((k) => $(`measure-${k}`).value)
     .filter((v) => v !== '')
     .map((i) => p().molecule.atoms[Number(i)]?.id);
   measurementIds = ids;
+  studiesUI?.syncSelection(scanType);
   try {
     const value = coordinate(p().molecule, ids);
     $('measurement').textContent =
@@ -340,6 +342,7 @@ function updateMeasurement() {
 }
 function renderCalculation() {
   const s = p().calculation;
+  studiesUI?.syncSelection(null, false);
   for (const [key] of Object.entries(defaults())) {
     const el = $(key);
     if (!el) continue;
@@ -379,9 +382,9 @@ function renderCalculation() {
   $('guided-panel').hidden = false;
   $('functional-field').hidden = !['HF', 'DFT'].includes(s.method);
   $('calculation-preview').hidden = stage !== 'calculation';
-  $('stage-studies').hidden = stage !== 'calculation';
-  $('dal-preview').readOnly = busy || studyRunning;
-  $('mol-preview').readOnly = busy || studyRunning;
+  $('stage-studies').hidden = stage !== 'calculation' || s.task !== 'scan';
+  $('dal-preview').readOnly = busy || studyRunning || s.task === 'scan';
+  $('mol-preview').readOnly = busy || studyRunning || s.task === 'scan';
   $('dispersion-field').hidden = s.method !== 'DFT' || !DISPERSION_FUNCTIONALS.has(s.functional);
   $('pcm-precision-field').hidden = s.environment !== 'water' || s.task !== 'optimize';
   $('excitation-fields').hidden = !['excitations', 'excitedOptimize', 'twoPhoton'].includes(s.task);
@@ -395,12 +398,12 @@ function renderCalculation() {
   $('average-field').title =
     'This Dalton version parses .MCAVER but does not implement weighted orbital optimization.';
   $('weights-field').hidden = !s.stateAverage;
-  $('steps-field').hidden = !['optimize', 'excitedOptimize'].includes(s.task);
+  $('steps-field').hidden = !['optimize', 'excitedOptimize', 'scan'].includes(s.task);
   $('frozen-field').hidden = !['MP2', 'CCSD'].includes(s.method);
   $('capability-note').textContent = METHODS[s.method].multireference
     ? 'Guided active spaces use C1 symmetry. Roots share the selected spin; their identities can change with geometry.'
     : 'HF/DFT energy and geometry tasks support restricted high-spin references. Excitations use singlet CIS (HF) or TDA-DFT. All guided calculations use C1 symmetry.';
-  const check = validateCalculation(p().molecule, s, p().prepared);
+  const check = validateCalculation(p().molecule, calculationTemplateSettings(), p().prepared);
   if (p().prepared?.orbitals == null && s.activeIndices.length)
     check.errors.push('Prepare reference orbitals again for their formatted coefficients.');
   messages('calculation-checks', check.errors, check.warnings);
@@ -409,10 +412,12 @@ function renderCalculation() {
       ? ''
       : `Estimated determinant count before spin adaptation: ${check.determinants.toLocaleString()}`;
   try {
-    const input = generateInput(p().molecule, s, p().prepared);
+    const input = generateInput(p().molecule, calculationTemplateSettings(), p().prepared);
     $('dal-preview').value = s.mode === 'expert' ? p().expert.dal : input.dal;
     $('mol-preview').value = s.mode === 'expert' ? p().expert.mol : input.mol;
-    $('input-edit-state').textContent = s.mode === 'expert' ? 'Edited input will run as shown. Changing a setting replaces these edits.' : 'Changing a setting regenerates this input.';
+    $('input-edit-state').textContent = s.task === 'scan'
+      ? 'Scan point template. Each point receives its own coordinates and, for relaxed scans, a constraint. Select an ordinary task to edit input directly.'
+      : s.mode === 'expert' ? 'Edited input will run as shown. Changing a setting replaces these edits.' : 'Changing a setting regenerates this input.';
   } catch {
     $('dal-preview').value = s.mode === 'expert' ? p().expert.dal : '';
     $('mol-preview').value = s.mode === 'expert' ? p().expert.mol : '';
@@ -429,6 +434,7 @@ function renderCalculation() {
   const executionError = renderExecution();
   $('run').disabled =
     busy || studyRunning || !manifest || !!executionError || (s.mode !== 'expert' && check.errors.length > 0);
+  $('run').textContent = s.task === 'scan' ? '▶ Run coordinate scan' : '▶ Run calculation';
 }
 function getMolden(run) {
   const file = run?.artifacts.find((a) => a.name === 'molden.inp');
@@ -506,6 +512,24 @@ function renderActiveOrbitals() {
   }
   el.append(list);
 }
+function updateDipoleControl(results = null, run = null) {
+  const vector = results?.dipoleComponents;
+  $('show-dipole').checked = false;
+  $('show-dipole').disabled = !vector;
+  $('dipole-display-note').hidden = !vector;
+  $('dipole-label').textContent = 'Dipole vector';
+  if (vector) {
+    const display = dipoleDisplay(vector);
+    $('dipole-label').textContent += ` · ${(results.dipoleDebye ?? display.magnitudeDebye).toFixed(5)} D`;
+    $('dipole-display-note').textContent = display.visible
+      ? 'Arrow length: 1 Å per Debye, capped at 3 Å. Points from negative toward positive charge.'
+      : `Below ${DIPOLE_ARROW_MIN_DEBYE} D: no arrow is drawn. The calculated value is retained.`;
+    if (dipoleNeedsRerun(run)) {
+      $('show-dipole').disabled = true;
+      $('dipole-display-note').textContent = 'This run predates the electronic dipole buffer fix. Rerun it to verify its dipole and enable the arrow.';
+    }
+  }
+}
 async function refreshViewer() {
   const version = ++viewerVersion;
   $('orbital-controls').hidden = true;
@@ -519,8 +543,7 @@ async function refreshViewer() {
   $('viewer-title').textContent = p().molecule.name;
   $('viewer-caption').textContent =
     'Drag to rotate · scroll to zoom · click up to four atoms to measure';
-  $('show-dipole').checked = false;
-  $('show-dipole').disabled = true;
+  updateDipoleControl();
   viewer.dipole(null);
 }
 async function showMolden(run) {
@@ -558,8 +581,7 @@ async function showMolden(run) {
   if (version !== viewerVersion) return;
   displayedAtoms = data.geometry.atoms;
   picks = [];
-  $('show-dipole').checked = false;
-  $('show-dipole').disabled = !run.results?.dipoleComponents;
+  updateDipoleControl(run.results, run);
   viewer.dipole(null);
   viewer.representation($('representation').value === 'space', $('atom-labels').checked);
   $('orbital-controls').hidden = !data.orbitals.length;
@@ -727,6 +749,8 @@ function renderResults() {
     const total = run.execution.ranks.reduce((sum, rank) => sum + (rank.wasmMemoryBytes ?? 0), 0);
     el.insertAdjacentHTML('beforeend', `<details><summary>MPI process diagnostics · ${(total / 1024 ** 3).toFixed(2)} GiB of WASM heaps</summary><pre>${escape(JSON.stringify(run.execution.ranks, null, 2))}</pre>${(run.rankLogs ?? []).map(log => `<details><summary>Rank ${log.rank} output tail</summary><pre>${escape(log.text)}</pre></details>`).join('')}</details>`);
   }
+  if (dipoleNeedsRerun(run)) el.insertAdjacentHTML('beforeend',
+    '<p class="warning">This run used an engine with a dipole buffer bug that could lose electronic x/y contributions. Recalculate to verify the dipole. The saved result is unchanged.</p>');
   if (run.status === 'running')
     el.insertAdjacentHTML('beforeend', '<p class="hint">Calculation in progress. Live output appears above.</p>');
   if (r.method === 'CI' && r.states?.length)
@@ -961,15 +985,23 @@ function setBusy(value) {
   $('cancel').disabled = !value;
   for (const el of $('guided-panel').querySelectorAll('input,select'))
     el.disabled = value || studyRunning;
+  for (const el of $('stage-studies').querySelectorAll('details input,details select'))
+    el.disabled = value || studyRunning;
   for (const id of ['create-course', 'create-study', 'save-structure', 'preview-coordinate'])
     $(id).disabled = value || studyRunning;
   renderCalculation();
+}
+function calculationTemplateSettings() {
+  const settings = p().calculation;
+  return settings.task === 'scan'
+    ? { ...settings, task: $('scan-mode').value === 'rigid' ? 'energy' : 'optimize' }
+    : settings;
 }
 function renderExecution() {
   const count = Number($('processes').value || 1), unavailable = mpiAvailability(mpiManifest);
   for (const option of $('processes').options) if (Number(option.value)>1) option.disabled = !!unavailable;
   let executionError = null;
-  if (count > 1) try { validateExecution(count, p().calculation, mpiManifest); } catch (error) { executionError = error.message; }
+  if (count > 1) try { validateExecution(count, calculationTemplateSettings(), mpiManifest); } catch (error) { executionError = error.message; }
   $('mpi-serial').hidden = !executionError;
   $('mpi-info').textContent = executionError ?? unavailable ?? `Ranks run on this computer. The count includes Dalton's master rank; some kernels use the remaining ranks for calculation.`;
   const total = memoryEstimate(count, Number($('memory').value));
@@ -987,6 +1019,8 @@ function finish() {
 async function runCalculation(purpose = 'calculation', override = {}) {
   if (busy || (studyRunning && !override.studyId))
     throw new Error('A calculation or study is already running.');
+  if (purpose === 'calculation' && !override.settings && p().calculation.task === 'scan')
+    return studiesUI.start();
   stopAnimation();
   notice('');
   const project = p(),
@@ -1603,7 +1637,7 @@ $('undo-molecule').onclick = () => {
   scheduleSave();
 };
 document.querySelector('.content-pane').prepend($('terminal-drawer'));
-$('stage-calculation').append($('stage-studies'));
+$('task').closest('.form-grid').after($('stage-studies'));
 const studiesUI = studyWorkspace({
   $,
   p,
@@ -1618,6 +1652,7 @@ const studiesUI = studyWorkspace({
   guard,
   refreshViewer,
   updateMeasurement,
+  renderCalculation,
   lock(value) {
     studyRunning = value;
     setBusy(busy);
@@ -1722,7 +1757,7 @@ for (const id of ['dal-preview', 'mol-preview']) $(id).oninput = () => {
   $('run').disabled = busy || studyRunning || !manifest || !!error;
   scheduleSave();
 };
-$('download-inputs').onclick = guard(() => downloadInputs({dal: $('dal-preview').value, mol: $('mol-preview').value, extraFiles: p().calculation.mode === 'expert' ? p().expert.extraFiles : generateInput(p().molecule,p().calculation,p().prepared).extraFiles}));
+$('download-inputs').onclick = guard(() => downloadInputs({dal: $('dal-preview').value, mol: $('mol-preview').value, extraFiles: p().calculation.mode === 'expert' ? p().expert.extraFiles : generateInput(p().molecule,calculationTemplateSettings(),p().prepared).extraFiles}));
 $('memory').onchange = () => {
   renderExecution();
   session.memory = $('memory').value;

@@ -32,12 +32,15 @@ export const METHODS = {
 };
 export const TASKS = {
   energy: 'Single-point energy',
+  scan: 'Coordinate scan',
   optimize: 'Geometry optimization',
   frequencies: 'Harmonic frequencies',
   polarizability: 'Static polarizability',
   excitations: 'Electronic excitations / UV–vis',
   excitedOptimize: 'Excited-state geometry optimization',
 };
+for (const method of Object.values(METHODS))
+  if (method.tasks.includes('energy')) method.tasks.push('scan');
 for (const method of ['HF','DFT','CASSCF','CI']) {
   METHODS[method].tasks.push(...Object.keys(PROPERTY_TASKS));
   if (['CASSCF','CI'].includes(method)) METHODS[method].tasks.push('polarizability','excitations');
@@ -245,6 +248,7 @@ export function orbitalPermutation(s, count) {
 }
 export function generateInput(mol, s, prepared) {
   s = { ...defaults(), ...s };
+  if (s.task === 'scan') throw new Error('Coordinate scans generate a separate input for each point.');
   const check = validateCalculation(mol, s, prepared);
   if (check.errors.length) throw new Error(check.errors.join('\n'));
   const mr = METHODS[s.method].multireference,

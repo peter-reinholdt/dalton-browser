@@ -220,11 +220,14 @@ export function createStudy(kind, mol, settings, options = {}) {
     if (options.optimizeStart !== false)
       add('start', 'Optimize common starting structure', 'optimize', {}, initial);
     const origin = options.optimizeStart !== false ? { geometryFrom: 'start' } : initial;
-    for (const [i, value] of scanValues(
+    const values = scanValues(
       options.start ?? 0,
       options.end ?? 180,
       options.step ?? 30,
-    ).entries()) {
+    );
+    // Validate the complete grid and fragment edit before launching any jobs.
+    for (const value of values) editCoordinate(mol, ids, value);
+    for (const [i, value] of values.entries()) {
       const extra = { ...origin, transform: { ids, value }, scanValue: value };
       if (options.scanMode !== 'relaxed') add(
         'rigid' + i,
